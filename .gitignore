@@ -1,0 +1,12 @@
+# Dependencies
+node_modules/
+.npm/
+
+# Environment & Logs
+.env
+*.log
+sent_emails_log.txt
+
+# OS Junk
+.DS_Store
+Thumbs.db

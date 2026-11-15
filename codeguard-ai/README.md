@@ -104,7 +104,7 @@ flowchart TD
 
 ## Installation
 ```bash
-git clone https://github.com/your-username/codeguard-ai.git
+git clone https://github.com/bhumika8328/codeguard-ai.git
 cd codeguard-ai
 
 python3 -m venv venv

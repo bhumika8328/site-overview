@@ -11,6 +11,8 @@ const AppState = {
   activeEditorA: null,
   activeEditorB: null,
   isMonacoReady: false,
+  pendingCodeA: null,
+  pendingCodeB: null,
   visualizer: null,
   activeTreeProgram: "A" // 'A' or 'B'
 };
@@ -82,12 +84,14 @@ const PIPELINE_STAGES = [
 // Document Ready Initialization
 document.addEventListener("DOMContentLoaded", async () => {
   initNavigation();
-  initMonacoEditors();
   initVisualizer();
-  await loadSampleCases();
-  await fetchHistory();
   initPipeline();
   initEventListeners();
+
+  // Initialize Monaco editors first, then load benchmark samples
+  await initMonacoEditors();
+  await loadSampleCases();
+  await fetchHistory();
 });
 
 // -------------------------------------------------------------
@@ -139,59 +143,88 @@ function navigateTo(targetId) {
 }
 
 // -------------------------------------------------------------
-// 2. Monaco Editor Integration with Fallback
+// 2. Monaco Editor Integration with Fallback & Race-Condition Guard
 // -------------------------------------------------------------
 function initMonacoEditors() {
-  const containerA = document.getElementById("editor-container-a");
-  const containerB = document.getElementById("editor-container-b");
+  return new Promise((resolve) => {
+    const containerA = document.getElementById("editor-container-a");
+    const containerB = document.getElementById("editor-container-b");
 
-  // Check if Monaco loader is available via CDN
-  if (window.require && typeof window.require === "function") {
-    try {
-      window.require.config({
-        paths: { vs: "https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs" }
-      });
-
-      window.require(["vs/editor/editor.main"], function () {
-        AppState.activeEditorA = monaco.editor.create(containerA, {
-          value: "# Program A Source Code\n",
-          language: "python",
-          theme: "vs",
-          automaticLayout: true,
-          fontSize: 13,
-          lineNumbers: "on",
-          minimap: { enabled: false },
-          scrollBeyondLastLine: false,
-          renderLineHighlight: "all"
+    if (window.require && typeof window.require === "function") {
+      try {
+        window.require.config({
+          paths: { vs: "https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs" }
         });
 
-        AppState.activeEditorB = monaco.editor.create(containerB, {
-          value: "# Program B Source Code\n",
-          language: "python",
-          theme: "vs",
-          automaticLayout: true,
-          fontSize: 13,
-          lineNumbers: "on",
-          minimap: { enabled: false },
-          scrollBeyondLastLine: false,
-          renderLineHighlight: "all"
-        });
+        // Safe timeout fallback in case CDN hangs
+        const timeoutId = setTimeout(() => {
+          if (!AppState.isMonacoReady) {
+            console.warn("Monaco loader timed out, falling back to standard textareas");
+            setupFallbackTextareas(containerA, containerB);
+            resolve();
+          }
+        }, 4000);
 
-        AppState.isMonacoReady = true;
-      });
-    } catch (err) {
-      console.warn("Monaco initialization error, using standard fallback textarea:", err);
+        window.require(["vs/editor/editor.main"], function () {
+          clearTimeout(timeoutId);
+
+          const initialValA = AppState.pendingCodeA !== null ? AppState.pendingCodeA : "# Program A Source Code\n";
+          const initialValB = AppState.pendingCodeB !== null ? AppState.pendingCodeB : "# Program B Source Code\n";
+
+          AppState.activeEditorA = monaco.editor.create(containerA, {
+            value: initialValA,
+            language: "python",
+            theme: "vs",
+            automaticLayout: true,
+            fontSize: 13,
+            lineNumbers: "on",
+            minimap: { enabled: false },
+            scrollBeyondLastLine: false,
+            renderLineHighlight: "all"
+          });
+
+          AppState.activeEditorB = monaco.editor.create(containerB, {
+            value: initialValB,
+            language: "python",
+            theme: "vs",
+            automaticLayout: true,
+            fontSize: 13,
+            lineNumbers: "on",
+            minimap: { enabled: false },
+            scrollBeyondLastLine: false,
+            renderLineHighlight: "all"
+          });
+
+          AppState.isMonacoReady = true;
+
+          // Apply any pending code that arrived during initialization
+          if (AppState.pendingCodeA !== null) {
+            AppState.activeEditorA.setValue(AppState.pendingCodeA);
+          }
+          if (AppState.pendingCodeB !== null) {
+            AppState.activeEditorB.setValue(AppState.pendingCodeB);
+          }
+
+          resolve();
+        });
+      } catch (err) {
+        console.warn("Monaco initialization error, using standard fallback textarea:", err);
+        setupFallbackTextareas(containerA, containerB);
+        resolve();
+      }
+    } else {
       setupFallbackTextareas(containerA, containerB);
+      resolve();
     }
-  } else {
-    setupFallbackTextareas(containerA, containerB);
-  }
+  });
 }
 
 function setupFallbackTextareas(c1, c2) {
   AppState.isMonacoReady = false;
-  c1.innerHTML = `<textarea id="fallback-textarea-a" class="code-textarea" placeholder="# Enter Program A code here..."></textarea>`;
-  c2.innerHTML = `<textarea id="fallback-textarea-b" class="code-textarea" placeholder="# Enter Program B code here..."></textarea>`;
+  const valA = AppState.pendingCodeA || "";
+  const valB = AppState.pendingCodeB || "";
+  c1.innerHTML = `<textarea id="fallback-textarea-a" class="code-textarea" placeholder="# Enter Program A code here...">${escapeHtml(valA)}</textarea>`;
+  c2.innerHTML = `<textarea id="fallback-textarea-b" class="code-textarea" placeholder="# Enter Program B code here...">${escapeHtml(valB)}</textarea>`;
 }
 
 function getCodeA() {
@@ -199,15 +232,16 @@ function getCodeA() {
     return AppState.activeEditorA.getValue();
   }
   const el = document.getElementById("fallback-textarea-a");
-  return el ? el.value : "";
+  return el ? el.value : (AppState.pendingCodeA || "");
 }
 
 function setCodeA(val) {
+  AppState.pendingCodeA = val;
   if (AppState.isMonacoReady && AppState.activeEditorA) {
-    AppState.activeEditorA.setValue(val);
+    AppState.activeEditorA.setValue(val || "");
   } else {
     const el = document.getElementById("fallback-textarea-a");
-    if (el) el.value = val;
+    if (el) el.value = val || "";
   }
 }
 
@@ -216,15 +250,16 @@ function getCodeB() {
     return AppState.activeEditorB.getValue();
   }
   const el = document.getElementById("fallback-textarea-b");
-  return el ? el.value : "";
+  return el ? el.value : (AppState.pendingCodeB || "");
 }
 
 function setCodeB(val) {
+  AppState.pendingCodeB = val;
   if (AppState.isMonacoReady && AppState.activeEditorB) {
-    AppState.activeEditorB.setValue(val);
+    AppState.activeEditorB.setValue(val || "");
   } else {
     const el = document.getElementById("fallback-textarea-b");
-    if (el) el.value = val;
+    if (el) el.value = val || "";
   }
 }
 
@@ -275,6 +310,13 @@ function applySampleCase(key) {
   }
 
   hideSyntaxError();
+
+  if (AppState.isMonacoReady) {
+    setTimeout(() => {
+      if (AppState.activeEditorA) AppState.activeEditorA.layout();
+      if (AppState.activeEditorB) AppState.activeEditorB.layout();
+    }, 50);
+  }
 }
 
 // -------------------------------------------------------------

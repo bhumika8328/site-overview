@@ -143,10 +143,9 @@ Instruction Reordering: Independent non-dependent assignment reordering slightly
 
 
 ### Credits and references
-Aho, A. V., Lam, M. S., Sethi, R., & Ullman, J. D. (2006). Compilers: Principles, Techniques, and Tools (2nd ed.). Addison-Wesley (The Dragon Book).
-Jiang, L., Misherghi, G., Su, Z., & Glondu, S. (2007). DECKARD: Scalable and Accurate Tree-based Detection of Code Clones. IEEE/ACM International Conference on Software Engineering (ICSE).
-Roy, C. K., & Cordy, J. R. (2007). A Survey on Software Clone Detection Research. School of Computing, Queen's University.
-Python Standard Library: ast module (AST parsing and visitation), tokenize module (Lexical scanning).
-D3.js (v7): Hierarchical Tree Layout and SVG interactive rendering.
-Monaco Editor: Web-based code editor interface.
-AI Assistance: Architectural design and benchmark synthesis developed with assistance from Google Antigravity.
+1 . Aho, A. V., Lam, M. S., Sethi, R., & Ullman, J. D. (2006). Compilers: Principles, Techniques, and Tools (2nd ed.). Addison-Wesley (The Dragon Book).
+2 . Jiang, L., Misherghi, G., Su, Z., & Glondu, S. (2007). DECKARD: Scalable and Accurate Tree-based Detection of Code Clones. IEEE/ACM International Conference on Software Engineering (ICSE).
+3 . Roy, C. K., & Cordy, J. R. (2007). A Survey on Software Clone Detection Research. School of Computing, Queen's University.
+4 . Python Standard Library: ast module (AST parsing and visitation), tokenize module (Lexical scanning).
+5 . Monaco Editor: Web-based code editor interface.
+6. AI Assistance: Architectural design and benchmark synthesis developed with assistance from Google Antigravity.

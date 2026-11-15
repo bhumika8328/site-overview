@@ -205,6 +205,21 @@ function initMonacoEditors() {
             AppState.activeEditorB.setValue(AppState.pendingCodeB);
           }
 
+          // Auto-update program name if user edits code
+          AppState.activeEditorA.onDidChangeModelContent(() => {
+            const currentTitle = getEditorTitle("A");
+            if (isSampleName(currentTitle)) {
+              setEditorTitle("A", "my_program_a.py");
+            }
+          });
+
+          AppState.activeEditorB.onDidChangeModelContent(() => {
+            const currentTitle = getEditorTitle("B");
+            if (isSampleName(currentTitle)) {
+              setEditorTitle("B", "my_program_b.py");
+            }
+          });
+
           resolve();
         });
       } catch (err) {
@@ -291,6 +306,31 @@ async function loadSampleCases() {
   }
 }
 
+function isSampleName(name) {
+  if (!name) return false;
+  return name.startsWith("binary_search") ||
+         name.startsWith("fibonacci") ||
+         name.startsWith("bubble_sort") ||
+         name.startsWith("prime_checker") ||
+         name.startsWith("matrix_multiply") ||
+         name.startsWith("palindrome");
+}
+
+function getEditorTitle(target) {
+  const el = document.getElementById(target === "A" ? "editor-title-a" : "editor-title-b");
+  if (!el) return target === "A" ? "Program A" : "Program B";
+  return (("value" in el ? el.value : el.textContent) || (target === "A" ? "Program A" : "Program B")).trim();
+}
+
+function setEditorTitle(target, name) {
+  const el = document.getElementById(target === "A" ? "editor-title-a" : "editor-title-b");
+  if (!el) return;
+  if ("value" in el) {
+    el.value = name || "";
+  }
+  el.textContent = name || "";
+}
+
 function applySampleCase(key) {
   const sample = AppState.samples[key];
   if (!sample) return;
@@ -298,10 +338,8 @@ function applySampleCase(key) {
   setCodeA(sample.program_a);
   setCodeB(sample.program_b);
 
-  const titleElA = document.getElementById("editor-title-a");
-  const titleElB = document.getElementById("editor-title-b");
-  if (titleElA) titleElA.textContent = sample.program_a_name || "Program A";
-  if (titleElB) titleElB.textContent = sample.program_b_name || "Program B";
+  setEditorTitle("A", sample.program_a_name || "Program A");
+  setEditorTitle("B", sample.program_b_name || "Program B");
 
   const banner = document.getElementById("sample-desc-banner");
   if (banner) {
@@ -329,12 +367,10 @@ function handleFileUpload(file, target) {
     const content = e.target.result;
     if (target === "A") {
       setCodeA(content);
-      const titleEl = document.getElementById("editor-title-a");
-      if (titleEl) titleEl.textContent = file.name;
+      setEditorTitle("A", file.name);
     } else {
       setCodeB(content);
-      const titleEl = document.getElementById("editor-title-b");
-      if (titleEl) titleEl.textContent = file.name;
+      setEditorTitle("B", file.name);
     }
   };
   reader.readAsText(file);
@@ -390,8 +426,8 @@ async function runComparison() {
     sort_commutative_ops: document.getElementById("norm-comm")?.checked ?? true
   };
 
-  const nameA = document.getElementById("editor-title-a")?.textContent.trim() || "Program A";
-  const nameB = document.getElementById("editor-title-b")?.textContent.trim() || "Program B";
+  const nameA = getEditorTitle("A");
+  const nameB = getEditorTitle("B");
 
   const btnCompare = document.getElementById("btn-run-compare");
   const origBtnText = btnCompare ? btnCompare.innerHTML : "";
@@ -791,11 +827,17 @@ function initEventListeners() {
     const b = getCodeB();
     setCodeA(b);
     setCodeB(a);
+    const titleA = getEditorTitle("A");
+    const titleB = getEditorTitle("B");
+    setEditorTitle("A", titleB);
+    setEditorTitle("B", titleA);
   });
   document.getElementById("btn-clear-code")?.addEventListener("click", () => {
     if (confirm("Clear both code editors?")) {
       setCodeA("");
       setCodeB("");
+      setEditorTitle("A", "my_program_a.py");
+      setEditorTitle("B", "my_program_b.py");
       hideSyntaxError();
     }
   });
